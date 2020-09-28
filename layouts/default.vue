@@ -2,115 +2,108 @@
   <v-app dark>
     <v-navigation-drawer
       v-model="drawer"
-      :mini-variant="miniVariant"
-      :clipped="clipped"
-      fixed
       app
     >
-      <v-list>
+      <v-list subheader>
+        <v-subheader>Online users ({{ users.length }})</v-subheader>
         <v-list-item
-          v-for="(item, i) in items"
-          :key="i"
-          :to="item.to"
-          router
-          exact
+          v-for="u in users"
+          :key="u.id"
+          @click.prevent
         >
           <v-list-item-action>
-            <v-icon>{{ item.icon }}</v-icon>
+            <v-icon :color="user.id === u.id ? '#00BFA5' : 'grey'">mdi-account-circle-outline</v-icon>
           </v-list-item-action>
           <v-list-item-content>
-            <v-list-item-title v-text="item.title" />
+            <v-list-item-title v-text="u.name" />
           </v-list-item-content>
         </v-list-item>
       </v-list>
     </v-navigation-drawer>
     <v-app-bar
-      :clipped-left="clipped"
-      fixed
       app
     >
       <v-app-bar-nav-icon @click.stop="drawer = !drawer" />
-      <v-btn
-        icon
-        @click.stop="miniVariant = !miniVariant"
-      >
-        <v-icon>mdi-{{ `chevron-${miniVariant ? 'right' : 'left'}` }}</v-icon>
-      </v-btn>
-      <v-btn
-        icon
-        @click.stop="clipped = !clipped"
-      >
-        <v-icon>mdi-application</v-icon>
-      </v-btn>
-      <v-btn
-        icon
-        @click.stop="fixed = !fixed"
-      >
-        <v-icon>mdi-minus</v-icon>
-      </v-btn>
-      <v-toolbar-title v-text="title" />
       <v-spacer />
       <v-btn
         icon
-        @click.stop="rightDrawer = !rightDrawer"
+        @click = "exit"
       >
-        <v-icon>mdi-menu</v-icon>
+        <v-icon>mdi-exit-to-app</v-icon>
       </v-btn>
     </v-app-bar>
     <v-main>
-      <v-container>
+      <v-container fluid style="height: 100%;">
+        <v-row class="name-dialog" justify="center">
+          <v-dialog
+            v-model="dialog"
+            persistent
+            max-width="400"
+          >
+            <v-card>
+              <v-card-title class="headline py-4">
+                Enter your name to join the chat
+              </v-card-title>
+              <v-text-field :rules="rules" ref="usernameInput" class="px-7" label="Enter your name"></v-text-field>
+              <v-card-actions>
+                <v-spacer></v-spacer>
+                <v-btn
+                  color="green darken-1"
+                  text
+                  @click="submitUser()"
+                >
+                  Submit
+                </v-btn>
+              </v-card-actions>
+            </v-card>
+          </v-dialog>
+        </v-row>
         <nuxt />
       </v-container>
     </v-main>
-    <v-navigation-drawer
-      v-model="rightDrawer"
-      :right="right"
-      temporary
-      fixed
-    >
-      <v-list>
-        <v-list-item @click.native="right = !right">
-          <v-list-item-action>
-            <v-icon light>
-              mdi-repeat
-            </v-icon>
-          </v-list-item-action>
-          <v-list-item-title>Switch drawer (click me)</v-list-item-title>
-        </v-list-item>
-      </v-list>
-    </v-navigation-drawer>
     <v-footer
-      :fixed="fixed"
       app
     >
-      <span>&copy; {{ new Date().getFullYear() }}</span>
+      <span>Copyright &copy; {{ new Date().getFullYear() }} Sean McCaffery</span>
     </v-footer>
   </v-app>
 </template>
 
 <script>
+import io from 'socket.io-client'
+import { mapState } from 'vuex'
+
 export default {
   data () {
     return {
-      clipped: false,
-      drawer: false,
-      fixed: false,
-      items: [
-        {
-          icon: 'mdi-apps',
-          title: 'Welcome',
-          to: '/'
-        },
-        {
-          icon: 'mdi-chart-bubble',
-          title: 'Inspire',
-          to: '/inspire'
-        }
-      ],
-      miniVariant: false,
-      right: true,
-      rightDrawer: false,
-      title: 'Vuetify.js'
+      dialog: true,
+      drawer: true,
+      users: [],
+      socket: io('http://localhost:3000'),
+      rules: [v => !!v || "Text is required"],
+    }
+  },
+  computed: mapState({
+    user: state => state.user
+  }),
+  mounted: function () {
+    this.socket.on("updateUsers", (users) => {
+      this.users = users
+    })
+  },
+  methods: {
+    submitUser() {
+      let usernameInput = this.$refs.usernameInput.$el.querySelector('input').value
+      if (usernameInput) {
+        this.$refs.usernameInput.$el.querySelector('input').value = ''
+        this.dialog = false
+        let newUser = this.socket.emit("createUser", usernameInput)
+        this.$store.commit('setUser', { id: newUser.id, name: usernameInput })
+      }
+    },
+    exit() {
+      this.socket.emit('userLeave')
+      this.dialog = true
     }
   }
 }
