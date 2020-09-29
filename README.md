@@ -1,6 +1,7 @@
 # fleetchat
 
 > A chat app
+> Live version here: https://fleetchat.herokuapp.com/
 
 ## Build Setup
 
